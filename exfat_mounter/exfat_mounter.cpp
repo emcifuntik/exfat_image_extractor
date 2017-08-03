@@ -146,7 +146,6 @@ int main()
 	std::cout << "Upcase cluster offset: " << std::hex << exfat_c2o(&table, 4) << std::endl;
 
 
-	volume_label label;
 	fin->seekg(0);
 
 	int8_t *rootdir = new int8_t[CLUSTER_SIZE(&table)];
@@ -187,8 +186,6 @@ int main()
 			}
 		}
 	}
-
-	getchar();
     return 0;
 }
 
