@@ -1,0 +1,16 @@
+*.db
+*.suo
+*.ipch
+*.bin
+*.txt
+volumes/
+*.obj
+*.tlog
+*.idb
+*.log
+*.pch
+*.lik
+*.pdb
+*.exe
+*.ilk
+*.opendb
