@@ -6,8 +6,6 @@
 std::vector<uint8_t*> clusters;
 exfat_table table;
 
-std::wofstream *logs = nullptr;
-
 std::wstring label_name;
 
 int unknowns = 0;
@@ -107,28 +105,30 @@ void find_directories(std::ifstream *fin, uint32_t cluster, uint64_t cluster_siz
 	}
 }
 
-int main()
+int main(int argc, char* argv[])
 {
-	std::ifstream* fin = new std::ifstream("system_fs_image.bin", std::iostream::binary);
-	logs = new std::wofstream("logs.txt", std::iostream::binary);
+	std::ifstream* fin = nullptr;
+	if (argc < 2) {
+		std::cout << "[USAGE] exfat_mounter.exe [Input file]" << std::endl;
+		return 0;
+	}
+	else {
+		fin = new std::ifstream(argv[1], std::iostream::binary);
+	}
 
 	fin->read((char*)&table, sizeof(exfat_table));
+
+#ifdef _DEBUG
 	std::cout << "OEM: " << table.oem_name << std::endl;
 	std::cout << "Sector start: 0x" << std::hex << table.sector_start << std::endl;
 	std::cout << "Sector count: " << std::dec << table.sector_count << std::endl;
-
 	std::cout << "Fat sector start: 0x" << std::hex << table.fat_sector_start << std::endl;
 	std::cout << "Fat sector count: " << std::dec << table.fat_sector_count << std::endl;
-
 	std::cout << "Cluster sector start: 0x" << std::hex << table.cluster_sector_start*(int)SECTOR_SIZE(&table) << std::endl;
 	std::cout << "Cluster count: " << std::dec << table.cluster_count << std::endl;
-
 	std::cout << "Rootdir cluster: " << std::dec << table.rootdir_cluster << std::endl;
-
-	std::cout << "Volume serial number: " << std::hex << std::setfill('0') << std::setw(2) << (int)table.volume_serial[0] << (int)table.volume_serial[1] << (int)table.volume_serial[2] << (int)table.volume_serial[3] << std::endl;
-
+	std::cout << "Volume serial number: " << std::hex << std::setfill('0') << std::setw(2) << (int)table.volume_serial[0] << std::setfill('0') << std::setw(2) << (int)table.volume_serial[1] << std::setfill('0') << std::setw(2) << (int)table.volume_serial[2] << std::setfill('0') << std::setw(2) << (int)table.volume_serial[3] << std::endl;
 	std::cout << "Version: " << std::dec << (int)table.version.vermaj << "." << std::dec << (int)table.version.vermin << std::endl;
-
 	std::cout << "Volume state: " << std::dec << table.volume_state << std::endl << std::endl;
 	std::cout << "Bytes per sector: " << std::dec << (int)SECTOR_SIZE(&table) << std::endl;
 	std::cout << "Sectors per cluster: " << std::dec << (int)table.spc_bits << std::endl;
@@ -137,17 +137,9 @@ int main()
 	std::cout << "Allocated percents: " << std::dec << (int)((255 / (float)table.allocated_percent)*100) << "%" << std::endl << std::endl;
 
 	std::cout << "Cluster size = " << std::dec << CLUSTER_SIZE(&table)/1024 << " KB" << std::endl << std::endl;
-
-	std::cout << "Allocation cluster sector start: 0x" << std::hex << (table.cluster_sector_start*(int)SECTOR_SIZE(&table)) + CLUSTER_SIZE(&table) << std::endl;
-
-	std::cout << "Allocation cluster offset: " << std::hex << exfat_c2o(&table, 5) << std::endl;
-	std::cout << "1st bitmap cluster offset: " << std::hex << exfat_c2o(&table, 2) << std::endl;
-	std::cout << "2st bitmap cluster offset: " << std::hex << exfat_c2o(&table, 3) << std::endl;
-	std::cout << "Upcase cluster offset: " << std::hex << exfat_c2o(&table, 4) << std::endl;
-
+#endif
 
 	fin->seekg(0);
-
 	int8_t *rootdir = new int8_t[CLUSTER_SIZE(&table)];
 	fin->seekg(exfat_c2o(&table, 5));
 	fin->read((char*)rootdir, CLUSTER_SIZE(&table));
@@ -158,9 +150,9 @@ int main()
 	for (int i = 0; i < CLUSTER_SIZE(&table); i += 32) {
 		switch (((exfat_entry*)&rootdir[i])->type) {
 			case EXFAT_ENTRY_LABEL:
-				std::wcout << L"Volume name: " << ((exfat_entry_label*)&rootdir[i])->name << std::endl;
 				label_name = ((exfat_entry_label*)&rootdir[i])->name;
 				_wmkdir((std::wstring(L".\\volumes\\") + label_name).c_str());
+				std::wcout << L"Volume found: " << label_name << std::endl;
 				break;
 			case EXFAT_ENTRY_BITMAP:
 				std::wcout << L"Bitmap found: " << ((((exfat_entry_bitmap*)&rootdir[i])->flags == 1) ? "2nd" : "1st") << ", cluster number: " << ((exfat_entry_bitmap*)&rootdir[i])->start_cluster << ", size of bitmap: " << ((exfat_entry_bitmap*)&rootdir[i])->size << std::endl;
@@ -176,8 +168,6 @@ int main()
 				auto folder_start = ((exfat_entry_meta2*)&rootdir[i])->size;
 
 				i += 32;
-				(*logs) << ((exfat_entry_name*)&rootdir[i])->name << std::endl;
-
 				if (file->directory) {
 					_wmkdir((std::wstring(L".\\volumes\\") + label_name + L"\\" + ((exfat_entry_name*)&rootdir[i])->name).c_str());
 					find_directories(fin, folder_cluster, folder_start, ((exfat_entry_name*)&rootdir[i])->name);
@@ -186,6 +176,7 @@ int main()
 			}
 		}
 	}
+	std::wcout << L"Extracted" << std::endl;
     return 0;
 }
 
