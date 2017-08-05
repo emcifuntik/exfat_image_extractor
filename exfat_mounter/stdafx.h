@@ -16,7 +16,16 @@
 #include <iomanip>
 #include <vector>
 #include <direct.h>
+#include <locale>
+#include <codecvt>
+#include <algorithm> 
+#include <cctype>
 
+#ifdef _WIN32
+#include <Windows.h>
+#endif
+
+#pragma pack(push, 1)
 struct exfat_table {
 	uint8_t magic[3];
 	uint8_t oem_name[8];
@@ -144,7 +153,8 @@ struct exfat_entry_meta1			/* file or directory info (part 1) */
 	uint16_t atime, adate;			/* latest access date and time */
 	uint8_t crtime_cs;				/* creation time in cs (centiseconds) */
 	uint8_t mtime_cs;				/* latest modification time in cs */
-	uint8_t __unknown2[10];
+	uint8_t atime_cs;				/* latest access time in cs */
+	uint8_t __unknown2[9];
 };
 
 #define EXFAT_FLAG_ALWAYS1		(1u << 0)
@@ -172,5 +182,74 @@ struct exfat_entry_name				/* file or directory name */
 };
 
 
+struct fat32_table {
+	uint8_t magic[3]; //3
+	uint8_t oem_name[8]; //8
+	uint16_t sector_bytes; //2
+	uint8_t sector_per_cluster; //1
+	uint16_t reserved_sectors; //2
+	uint8_t fat_count; //1
+	uint16_t directory_entries; //2
+	uint16_t total_sectors; //2
+	uint8_t media; //1
+	uint16_t _fat_size_in_sectors; //2
+	uint16_t sectors_per_track; //2
+	uint16_t num_heads; //2
+	uint32_t hidden_sectors; //4
+	uint32_t sectors_on_volume; //4
+	uint32_t fat_size_in_sectors; //4
+	uint16_t ext_flags; //2
+	uint16_t fat_version; //2 
+	uint32_t root_cluster; //4
+	uint16_t fs_info; //2
+	uint16_t backup_boot_sector; //2
+	uint8_t __unused1[12]; //12
+	uint8_t drive_number; //1
+	uint8_t win_nt_flags; //1
+	uint8_t boot_sig; //1
+	uint32_t volume_id; //4
+	char volume_label[11]; //11
+	char file_system_time[8]; //8
+	uint8_t boot_image[420]; //420
+	uint16_t boot_signature; //2
+};
+
+#define FAT32_SECTOR(x, y) (((cluster - 2) * x.sectors_per_cluster) + first_data_sector)
+
+#define FAT32_FLAG_READ_OLNY 0x01
+#define FAT32_FLAG_HIDDEN 0x02
+#define FAT32_FLAG_SYSTEM 0x04
+#define FAT32_FLAG_VOLUME_ID 0x08
+#define FAT32_FLAG_DIRECTORY 0x10
+#define FAT32_FLAG_ARCHIVE 0x20
+#define FAT32_FLAG_LFN (FAT32_FLAG_READ_OLNY | FAT32_FLAG_HIDDEN | FAT32_FLAG_SYSTEM | FAT32_FLAG_VOLUME_ID)
+
+struct fat32_file {
+	char file_name[11];
+	uint8_t flags;
+	uint8_t nt_reserved;
+	uint8_t creating_time_ms;
+	uint16_t creating_time;
+	uint16_t creating_date;
+	uint16_t last_access_date;
+	uint16_t hi_first_cluster;
+	uint16_t last_mod_time;
+	uint16_t last_mod_date;
+	uint16_t lo_first_cluster;
+	uint32_t file_size;
+};
+
+struct fat32_long_directory {
+	uint8_t order;
+	wchar_t file_name[5];
+	uint8_t flags;
+	uint8_t dir_type;
+	uint8_t chksum;
+	wchar_t file_name2[6];
+	uint16_t first_cluster;
+	wchar_t file_name3[2];
+};
+
+#pragma pack(pop)
 
 // TODO: Установите здесь ссылки на дополнительные заголовки, требующиеся для программы
